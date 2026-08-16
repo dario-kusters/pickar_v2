@@ -1,0 +1,31 @@
+# MPLAB X build output
+build/
+dist/
+debug/
+
+# MPLAB X generated/cache files
+.generated_files/
+
+# Machine/user-specific MPLAB X settings
+nbproject/private/
+
+# MCC temporary autosave manifest
+mcc-manifest-autosave.yml
+
+# Compiler generated files
+*.o
+*.d
+*.elf
+*.hex
+*.map
+*.lst
+*.sdb
+*.sym
+*.pre
+*.p1
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+*~
+*.swp

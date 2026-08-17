@@ -1,0 +1,52 @@
+@startuml
+
+[*] -> POWER_ON : Reset
+state POWER_ON : Timer 10Sec\nTimerClr Button
+state NEW_BATT : 1,2Sec beep
+state BMS_IDLE : LED heartbeat
+state SMPS_ON : out  19V\nTimer 60Sec\nflashes GREEN 5Hz
+state SMPS_OFF : Energy over calc\nignore recovery
+state Batt_FULL : cycle++\ndata to EPROM
+state Batt_LOW : Ignore recovery\nclear bitBatt_LOW
+state Batt_Charging : Timer 3Hours
+state _1Sec_PULSE
+state BMS_flags : bitBatt_LOW\nbitBatt_Recovery\nbitCharger_ON\nbitNoCurrent
+state PC_ON {
+    state Batt_95_PCT : Full GREEN
+    state Batt_80_PCT : LED PWM
+    state Batt_30_PCT : flash Red 1Hz\nbitBatt_LOW
+    state Batt_20_PCT : flash Red 5Hz\nTimer 3min\nBeep 1Hz
+    state PC_shutdown : flash Red 5Hz\nTimer 2min\nBeep 1Hz
+  
+    Batt_95_PCT -> Batt_80_PCT : Vbatt < 80%
+    Batt_80_PCT --> Batt_30_PCT : Vbatt < 30%
+    Batt_30_PCT -left-> Batt_20_PCT : Vbatt < 20%
+    Batt_20_PCT --> PC_shutdown : Timeout
+} 
+PC_ON : Out 19V
+POWER_ON -down-> BMS_IDLE : Timeout
+POWER_ON -> NEW_BATT : Button
+NEW_BATT --> BMS_IDLE : Button relase
+
+BMS_IDLE -down-> Batt_LOW : bitBatt_LOW
+BMS_IDLE -down-> SMPS_ON : Button
+BMS_IDLE --> Batt_Charging : Charger_TurnON
+
+
+SMPS_ON -u-> BMS_IDLE : TimeOut
+SMPS_ON --> PC_ON : IBatt > 100mA
+
+PC_ON --> SMPS_OFF : 5x I_Batt = 0mA\nOR\nPC_shutdown Timeout
+
+SMPS_OFF -u-> BMS_IDLE : VBatt > 40%
+SMPS_OFF --> Batt_LOW : VBatt < 40%\nOR\nbitBatt_LOW
+
+Batt_FULL -u-> BMS_IDLE : VBatt\n=\n 27,5V
+Batt_LOW -> Batt_Charging : Vbatt > 50%
+Batt_Charging -> Batt_FULL : Vbatt > 28,52V\nAIN=3558
+Batt_Charging -right[#Red]-> Batt_Charging : \nTimer
+Batt_Charging -u-> BMS_IDLE : Button
+
+_1Sec_PULSE --> BMS_flags : 1
+
+@enduml

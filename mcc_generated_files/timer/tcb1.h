@@ -10,7 +10,7 @@
  * @version TCB1 Driver Version 1.1.2
 */
 /*
-© [2023] Microchip Technology Inc. and its subsidiaries.
+© [2026] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 

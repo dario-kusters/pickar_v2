@@ -119,13 +119,13 @@
         <targetDevice>AVR64DD14</targetDevice>
         <targetHeader></targetHeader>
         <targetPluginBoard></targetPluginBoard>
-        <platformTool>pk4hybrid</platformTool>
+        <platformTool>noID</platformTool>
         <languageToolchain>XC8</languageToolchain>
-        <languageToolchainVersion>3.00</languageToolchainVersion>
+        <languageToolchainVersion>4.00</languageToolchainVersion>
         <platform>3</platform>
       </toolsSet>
       <packs>
-        <pack name="AVR-Dx_DFP" vendor="Microchip" version="2.7.321"/>
+        <pack name="AVR-Dx_DFP" vendor="Microchip" version="2.8.343"/>
       </packs>
       <ScriptingSettings>
       </ScriptingSettings>

@@ -37,7 +37,6 @@ void command_interpreter_task(void);
 /*
     Main application
 */
-//DEBUG vars
 
 //App vars
 volatile uint16_t adcValues[2] = {0, 0}; // inicializar con los valores del ADC

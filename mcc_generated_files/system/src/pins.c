@@ -12,7 +12,7 @@
 */
 
 /*
-© [2023] Microchip Technology Inc. and its subsidiaries.
+© [2026] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -98,7 +98,7 @@ void PIN_MANAGER_Initialize()
     PORTMUX.EVSYSROUTEA = 0x0;
     PORTMUX.SPIROUTEA = 0x0;
     PORTMUX.TCAROUTEA = 0x0;
-    PORTMUX.TCBROUTEA = 0x0;
+ //   PORTMUX.TCBROUTEA = 0x0;
     PORTMUX.TCDROUTEA = 0x4;
     PORTMUX.TWIROUTEA = 0x0;
     PORTMUX.USARTROUTEA = 0x0;

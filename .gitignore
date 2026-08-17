@@ -6,6 +6,9 @@ debug/
 # MPLAB X generated/cache files
 .generated_files/
 
+# MPLAB for VS Code build output
+_build/
+
 # Machine/user-specific MPLAB X settings
 nbproject/private/
 
@@ -29,3 +32,6 @@ mcc-manifest-autosave.yml
 Thumbs.db
 *~
 *.swp
+# MPLAB/VS Code build output
+_build/
+.vscode/

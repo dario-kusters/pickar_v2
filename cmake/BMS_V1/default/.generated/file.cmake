@@ -26,11 +26,9 @@ set(BMS_V1_default_default_XC8_FILE_TYPE_compile
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/system/src/system.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/timer/src/rtc.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/timer/src/tcb0.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/timer/src/tcb1.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/timer/src/tcd0.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/uart/src/usart0.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/vref/src/vref.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../pins_NEW.c")
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../mcc_generated_files/vref/src/vref.c")
 set_source_files_properties(${BMS_V1_default_default_XC8_FILE_TYPE_compile} PROPERTIES LANGUAGE C)
 set(BMS_V1_default_default_XC8_FILE_TYPE_link)
 set(BMS_V1_default_default_XC8_FILE_TYPE_objcopy_avr)

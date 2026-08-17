@@ -46,7 +46,6 @@ extern "C" {
 #include "../nvm/nvm.h"
 #include "../timer/rtc.h"
 #include "../timer/tcb0.h"
-#include "../timer/tcb1.h"
 #include "../timer/tcd0.h"
 #include "../uart/usart0.h"
 #include "../vref/vref.h"

@@ -41,7 +41,6 @@ void SYSTEM_Initialize(void)
     NVM_Initialize();
     RTC_Initialize();
     TCB0_Initialize();
-    TCB1_Initialize();
     TCD0_Initialize();
     USART0_Initialize();
     VREF_Initialize();

@@ -349,28 +349,17 @@ void USART0_ReceiveISR(void)
 
     regValue = USART0.RXDATAL;
 
-//    if (regValue == '\x1b') {
-    if (regValue == 'z') { //z reseta los comandos log y AL
-        GPR_GPR1 &= ~((1 << LOG_cmd) | (1 << adc_Log_cmd));
-        usart0RxHead = 0;
-        usart0RxTail = 0;
-        usart0RxCount = 0;
-    } else {
-        if (regValue == '\r') { // Check if received character is CR (carriage return)
-            GPR_GPR0 |= (1 << bit_CR); // Set bit 0 of GPR0
-        }
-        tempRxHead = (usart0RxHead + 1) & USART0_RX_BUFFER_MASK; // Buffer size of RX should be in the 2^n
-        if (tempRxHead == usart0RxTail) {
-            // ERROR! Receive buffer overflow
-        }
-        else
-        {
-            // Store received data in buffer
-            usart0RxBuffer[usart0RxHead] = regValue;
-            usart0RxHead = tempRxHead;
+    tempRxHead = (usart0RxHead + 1) & USART0_RX_BUFFER_MASK; // Buffer size of RX should be in the 2^n
+    if (tempRxHead == usart0RxTail) {
+        // ERROR! Receive buffer overflow
+    }
+    else
+    {
+        // Store received data in buffer
+        usart0RxBuffer[usart0RxHead] = regValue;
+        usart0RxHead = tempRxHead;
 
-            usart0RxCount++;
-        }
+        usart0RxCount++;
     }
 
     if (USART0_RxCompleteInterruptHandler != NULL)
@@ -492,5 +481,4 @@ void USART0_TxCompleteCallbackRegister(void (* callbackHandler)(void))
        USART0_TxCompleteInterruptHandler = callbackHandler;
     }   
 }
-
 

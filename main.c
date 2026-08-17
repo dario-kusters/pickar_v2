@@ -33,6 +33,7 @@
 #include "include/globals.h"
 
 void command_interpreter_task(void);
+static void command_execute(char *commandBuffer, uint8_t commandLength);
 
 /*
     Main application
@@ -145,6 +146,58 @@ uint16_t i = 0; //aux var
 uint16_t Timer_shutdown = 600; // seconden
 uint16_t Min_i_var = 0;// Variable modificable iniciada con el valor de la constante
 
+static void enter_battery_30_substate(void)
+{
+    i = 1;
+    NEXT_SUB_STATE = SUB_Batt_30_PCT;
+}
+
+static void enter_battery_20_substate(void)
+{
+    i = 100;
+    Timer_shutdown = 600;
+    NEXT_SUB_STATE = SUB_Batt_20_PCT;
+}
+
+static void reset_pc_session_context(void)
+{
+    PWR_SW_SetLow();
+    CURRENT_SUB_STATE = SUB_NONE;
+    NEXT_SUB_STATE = SUB_NONE;
+    btn_counter = 0;
+    i = 0;
+    Timer_shutdown = 600;
+}
+
+static void update_no_current_flag(uint16_t current_average)
+{
+    if (current_average > Min_i_var) {
+        GPR_GPR2 &= ~(1 << bitNoCurrent);
+        NoCurrent_Cnt = 0;
+    } else {
+        NoCurrent_Cnt++;
+        if (NoCurrent_Cnt >= 3) {
+            NoCurrent_Cnt = 0;
+            GPR_GPR2 |= (1 << bitNoCurrent);
+        }
+    }
+}
+
+static bool button_released_debounced(void)
+{
+    if (_100mS_PULSE) {
+        if (ONbtn_GetValue()) {
+            if (Timer100mS < 3) {
+                Timer100mS++;
+            }
+        } else {
+            Timer100mS = 0;
+        }
+    }
+
+    return (Timer100mS >= 3);
+}
+
 
 
 int main(void)
@@ -154,6 +207,8 @@ int main(void)
 //  3-  Main_end:    todo lo que debe ejecutarse al final de Main.
 {
     SYSTEM_Initialize();
+    ONbtn_DisableInterruptOnChange();
+    VPORTF.INTFLAGS = PORT_INT6_bm;
     RTC_Initialize();   // overflow cada segundo
     TCB0_Initialize();  // overflow cada 1 milisegundo
     TCD0_Initialize();  // Genera los PWM 1 y 2 para el LED bicolor Rojo Verde
@@ -231,11 +286,8 @@ int main(void)
             
         }// bit1Sec_Main ***************************
         
-         // Si se recibio un CR ejecutar command interpreter
-        if (GPR_GPR0 & (1 << 0)) {
-            command_interpreter_task();
-            GPR_GPR0 &= ~(1 << 0);
-        } 
+        // Consume los datos recibidos sin bloquear el lazo principal.
+        command_interpreter_task();
  
         // Si hay nuevos valores en el ADC, agregarlos al buffer y sumarlos
         if (GPR_GPR0 & (1 << bitADCvalues)) {
@@ -306,12 +358,14 @@ int main(void)
             }//Calculo SMPS ON Fin*************************            
             
             // Calculo del promedio adcvalues en buffer
+            if (measurementCount != 0) {
                 V_batt_AVG = V_batt_Sum / measurementCount;
                 I_batt_AVG = I_batt_Sum / measurementCount;
                 // Resetear las variables para la próxima ronda de mediciones
                 V_batt_Sum = 0;
                 I_batt_Sum = 0;
                 measurementCount = 0;
+            }
             
             // ***** Niveles de carga de baterias ****************
             if (V_batt_AVG > Vbatt_80_PCT) {
@@ -325,6 +379,9 @@ int main(void)
                     LED_G = 0;
             }
             // ***** FIN Niveles de carga de baterias ****************
+
+            // Actualizar antes de la FSM para que decida con la medida de este segundo.
+            update_no_current_flag(I_batt_AVG);
             
             
         } // Fin procesos cada 1 Segundo
@@ -365,12 +422,12 @@ int main(void)
                 GPR_GPR0 |= (1 << bitBuzzer);
                 AL_selected = alarm1;
                 TimerSec = 0;
+                Timer100mS = 0;
                 printf("New Batteries\r\n");
                 NEXT_STATE = STATE_NEW_BATT;     // "Button release"
                 break;
             case STATE_NEW_BATT: // En este estado solo retardo para pasar al proximo.
-                if(ONbtn_GetValue() && _100mS_PULSE) Timer100mS++;
-                if (Timer100mS == 3){
+                if (button_released_debounced()) {
                     NEXT_STATE = STATE_BMS_IDLE;     // "Button release"
                 }
                 break;
@@ -407,6 +464,10 @@ int main(void)
                     OFF_SMPS_SetLow();
                     printf("SMPS ON\r\n");
                     TimerSec = 60;
+                    I_batt_AVG = 0;
+                    V_batt_Sum = 0;
+                    I_batt_Sum = 0;
+                    measurementCount = 0;
                 } else {
                     if _1Sec_PULSE TimerSec--;
                     if (TimerSec == 59){
@@ -419,7 +480,10 @@ int main(void)
                         printf("SMPS OFF\r\n");
                         NEXT_STATE = STATE_BMS_IDLE;  
                     }     // "TimeOut"
-                    else if (I_batt_AVG > 125) NEXT_STATE = STATE_PC_ON;  // "IBatt > 100mA"
+                    else if (_1Sec_PULSE && (I_batt_AVG > 125)) {
+                        PWR_SW_SetLow();
+                        NEXT_STATE = STATE_PC_ON;  // "IBatt > 100mA"
+                    }
                 }
                 break;
 
@@ -450,11 +514,6 @@ int main(void)
                 
                 
 
-                // Si el estado principal cambia, reseteamos el subestado
-                if (CURRENT_STATE != NEXT_STATE) {
-                    CURRENT_SUB_STATE = SUB_NONE;
-                }
-
                 // Actualiza el subestado actual solo si hay un cambio.
                 if (CURRENT_SUB_STATE != NEXT_SUB_STATE) {
                     CURRENT_SUB_STATE = NEXT_SUB_STATE;
@@ -465,8 +524,8 @@ int main(void)
                         // Determinar % de carga de bateria con corriente. 
                         if (V_batt_AVG > Vbatt_80_PCT) NEXT_SUB_STATE = SUB_Batt_95_PCT;
                         else if (V_batt_AVG > Vbatt_30_PCT) NEXT_SUB_STATE = SUB_Batt_80_PCT;
-                        else if (V_batt_AVG > Vbatt_20_PCT) NEXT_SUB_STATE = SUB_Batt_30_PCT;
-                        else NEXT_SUB_STATE = SUB_Batt_20_PCT;
+                        else if (V_batt_AVG > Vbatt_20_PCT) enter_battery_30_substate();
+                        else enter_battery_20_substate();
                         // Aquí podrías también manipular NEXT_STATE si es necesario
                         break;
                         
@@ -484,8 +543,7 @@ int main(void)
                             PWMset[1] = LED_G;
                         }
                         if (V_batt_AVG < Vbatt_30_PCT) {
-                            NEXT_SUB_STATE = SUB_Batt_30_PCT;
-                            i = 1;
+                            enter_battery_30_substate();
                         }
 
                         break;
@@ -503,8 +561,7 @@ int main(void)
                             else PWMset[0] = 0;
                         }
                         if (V_batt_AVG < Vbatt_20_PCT) {
-                            NEXT_SUB_STATE = SUB_Batt_20_PCT;
-                            Timer_shutdown = 600;
+                            enter_battery_20_substate();
                         }
 
                         // ...
@@ -563,15 +620,14 @@ int main(void)
 // En este estado calcular la energia restante en baterias, la sumantoria de horas de las
 //baterias (Lifetime) y guardar datos en EPROM,                
             case STATE_SMPS_OFF:
+                PWR_SW_SetLow();
                 if (!OFF_SMPS_GetValue()){
                     OFF_SMPS_SetHigh();
                     printf("SMPS is OFF\r\n");
                     PWMset[0] = 0;
                     PWMset[1] = 0;
                 }
-                cnt100mS = 3; //Para el LED en STATE_Batt_LOW
-
-				if (ONbtn_GetValue()) {
+                if (button_released_debounced()) {
                     if (bitBatt_LOW){
                         NEXT_STATE = STATE_Batt_LOW;  // "VBatt < 40% OR bitBatt_LOW"
                         //else if (V_batt_AVG > Vbatt_30_PCT) NEXT_STATE = STATE_BMS_IDLE;
@@ -629,12 +685,19 @@ int main(void)
 
             default:
                 // Manejo de error o reinicio al estado inicial.
+                TimerSec = 10;
                 NEXT_STATE = STATE_POWER_ON;
                 break;
         }
 
         // Actualiza el estado actual solo si hay un cambio.
         if (CURRENT_STATE != NEXT_STATE) {
+            if (NEXT_STATE == STATE_SMPS_OFF) {
+                Timer100mS = 0;
+            }
+            if ((CURRENT_STATE == STATE_PC_ON) || (NEXT_STATE == STATE_PC_ON)) {
+                reset_pc_session_context();
+            }
             CURRENT_STATE = NEXT_STATE;
         }
         
@@ -700,18 +763,6 @@ int main(void)
                     break;
             }
         
-        // bitNoCurrent se setea (no current) solo si se mide 3 segundos seguidos  I = 0)
-            if (I_batt_AVG > Min_i_var){
-                GPR_GPR2 &= ~(1 << bitNoCurrent);  //clear bit
-                NoCurrent_Cnt = 0;
-            } else {
-                NoCurrent_Cnt++;
-                if (NoCurrent_Cnt >= 3){
-                    NoCurrent_Cnt = 0;
-                    GPR_GPR2 |= (1 << bitNoCurrent);
-                }
-            }
-
         }
         
         GPR_GPR1 &= ~((1 << bit1mS_Main) | (1 << bit100mS_Main) | (1 << bit1Sec_Main));
@@ -725,27 +776,45 @@ int main(void)
 #include <stdlib.h>
 
 #define USART0_RX_BUFFER_SIZE 128 
+#define USART0_BYTES_PER_TASK 32
 
-void command_interpreter_task() {
-    extern uint8_t usart0RxBuffer[USART0_RX_BUFFER_SIZE];
-    static uint8_t rxBufferIndex = 0; 
-    char commandBuffer[USART0_RX_BUFFER_SIZE];
-    uint8_t commandLength = 0;
+void command_interpreter_task(void)
+{
+    static char commandBuffer[USART0_RX_BUFFER_SIZE];
+    static uint8_t commandLength = 0;
+    static uint8_t discardLine = 0;
+    uint8_t bytesProcessed = 0;
 
-    while (usart0RxBuffer[rxBufferIndex] != '\r' && rxBufferIndex < USART0_RX_BUFFER_SIZE) {
-        commandBuffer[commandLength++] = usart0RxBuffer[rxBufferIndex];
-        usart0RxBuffer[rxBufferIndex] = 0; 
-        rxBufferIndex = (rxBufferIndex + 1) % USART0_RX_BUFFER_SIZE;
+    while (USART0_IsRxReady() && (bytesProcessed < USART0_BYTES_PER_TASK)) {
+        char received = (char)USART0_Read();
+        bytesProcessed++;
+
+        if (received == 'z') {
+            GPR_GPR1 &= ~((1 << LOG_cmd) | (1 << adc_Log_cmd));
+            commandLength = 0;
+            discardLine = 0;
+        } else if (received == '\r') {
+            if (!discardLine && (commandLength > 0)) {
+                commandBuffer[commandLength] = '\0';
+                command_execute(commandBuffer, commandLength);
+            }
+            commandLength = 0;
+            discardLine = 0;
+        } else if (!discardLine) {
+            if (commandLength < (USART0_RX_BUFFER_SIZE - 1)) {
+                commandBuffer[commandLength++] = received;
+            } else {
+                commandLength = 0;
+                discardLine = 1;
+            }
+        }
     }
+}
 
-    if (commandLength > 0 && usart0RxBuffer[rxBufferIndex] == '\r') {
-        commandBuffer[commandLength] = '\0';
-        usart0RxBuffer[rxBufferIndex] = 0; 
-        rxBufferIndex = (rxBufferIndex + 1) % USART0_RX_BUFFER_SIZE;
-
+static void command_execute(char *commandBuffer, uint8_t commandLength)
+{
         if (commandLength == 1 && commandBuffer[0] == '?') {
             printf("\r\nCommands:\r\nTIME OFF\r\nRead:\r\nPWMn  TIME  TON  AIN LOG AL\r\n\r\nn: 1 to 2\r\nx: 0 to 4095\r\nuse UPPER CASE.\r\n");
-            return; 
         }
         else if (commandLength >= 4 && strncmp(commandBuffer, "PWM", 3) == 0 
                  && commandBuffer[3] >= '1' && commandBuffer[3] <= '2') {
@@ -798,7 +867,7 @@ void command_interpreter_task() {
             if (commandLength == 4) {
                 printf("CPU Time is %02u:%02u:%02u.\r\n", RTC_hh, RTC_mm, RTC_ss);
             }
-            else if (commandBuffer[4] == ' ' && commandBuffer[7] == ' ' && commandBuffer[10] == ' ') {
+            else if ((commandLength >= 13) && commandBuffer[4] == ' ' && commandBuffer[7] == ' ' && commandBuffer[10] == ' ') {
                 RTC_hh = atoi(&commandBuffer[5]);
                 RTC_mm = atoi(&commandBuffer[8]);
                 RTC_ss = atoi(&commandBuffer[11]);
@@ -855,8 +924,6 @@ else if (commandLength == 3 && strncmp(commandBuffer, "BUZ", 3) == 0) {
         else {
             printf("?\r\n");
         }
-        commandLength = 0;
-    }
 }
 
 

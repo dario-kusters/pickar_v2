@@ -61,7 +61,7 @@ void PIN_MANAGER_Initialize()
 
   /* PINxCTRL registers Initialization */
     PORTA.PIN0CTRL = 0x0;
-    PORTA.PIN1CTRL = 0x0;
+    PORTA.PIN1CTRL = 0x8;
     PORTA.PIN2CTRL = 0x0;
     PORTA.PIN3CTRL = 0x0;
     PORTA.PIN4CTRL = 0x0;
@@ -90,7 +90,8 @@ void PIN_MANAGER_Initialize()
     PORTF.PIN3CTRL = 0x0;
     PORTF.PIN4CTRL = 0x0;
     PORTF.PIN5CTRL = 0x0;
-    PORTF.PIN6CTRL = 0xD;
+    // PF6 is a polled active-low button input; PORT interrupt sensing stays disabled.
+    PORTF.PIN6CTRL = 0x8;
     PORTF.PIN7CTRL = 0x0;
 
   /* PORTMUX Initialization */

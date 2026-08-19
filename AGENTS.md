@@ -3,14 +3,13 @@
 ## Project
 
 This is production firmware for a custom battery/power-control board
-based on an AVR64DD14 microcontroller.
+based on an AVR64DD14 microcontroller and deployed on working hardware.
 
-The firmware was developed in MPLAB X IDE approximately 3 years ago
-and is currently in use in six warehouse carts.
+Read `README.md` for repository status and `docs/system-overview.md` for
+the hardware architecture and implemented operating behavior.
 
-This is an existing, working embedded system. Treat the current
-behavior as intentional unless there is evidence in the source code
-or documentation that it is a bug.
+Treat the current behavior as intentional unless there is evidence in the
+source code or documentation that it is a bug.
 
 ## General rules
 
